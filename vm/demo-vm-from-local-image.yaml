@@ -1,0 +1,70 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: demo-cirros-vm-from-local
+spec:
+  # Define the instance type and preference
+  # You can find all the instance types here, https://github.com/kubevirt/common-instancetypes?tab=readme-ov-file#resources
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.small  # run 'kubectl get vmcfs' to see all the available instancetypes
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: cirros # change this based on the image, avaialble options can be found in 'kubectl get vmcps'
+  
+  # Set the VM to always run
+  runStrategy: Always
+  
+  # VM template specification
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+            vm: demo-cirros-vm-from-local
+    spec:
+      domain:
+        devices:
+          # Define disks
+          disks:
+          - disk:
+              bus: virtio
+            name: disk1
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          # Define network interface
+          interfaces:
+          - masquerade: {} ## https://kubevirt.io/user-guide/network/interfaces_and_networks/#masquerade
+            name: default
+        machine:
+          type: ""
+      # Define network
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      # Define volumes
+      volumes:
+      - name: disk1
+        dataVolume:
+          name: demo-cirros-vm-from-local
+      - name: cloudinitdisk ## cloud-init will setup up the ssh user mentioned in the cloud-init-secret.yaml
+        cloudInitNoCloud: ## Set the login credentials and enable password authentication via cloud-init, username is rocky by default. 
+          userData: |
+           #cloud-config
+           password: cirros
+  dataVolumeTemplates:
+  - metadata:
+      name: demo-cirros-vm-from-local
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 5Gi ## VM disk size, set this based on your workload requirements
+      source:
+        pvc:
+          name: cirros-0.6.3.img ## Name of the PVC to clone from

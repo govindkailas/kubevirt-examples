@@ -1,0 +1,79 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: demo-rocky-vm-from-pvc
+spec:
+  # Define the instance type and preference
+  # You can find all the instance types here, https://github.com/kubevirt/common-instancetypes?tab=readme-ov-file#resources
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.large  # run 'kubectl get vmcfs' to see all the available instancetypes
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: centos.stream9 # change this based on the image, avaialble options can be found in 'kubectl get vmcps'
+  
+  # Set the VM to always run
+  runStrategy: Always
+  
+  # VM template specification
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+            vm: demo-rocky-vm-from-pvc
+    spec:
+      domain:
+        devices:
+          # Define disks
+          disks:
+          - disk:
+              bus: virtio
+            name: disk1
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          # Define network interface
+          interfaces:
+          - masquerade: {}
+            name: default
+        machine:
+          type: ""
+      # Define network
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      # Define volumes
+      volumes:
+      - name: "serviceaccount"
+        serviceAccount:
+          serviceAccountName: cdi-cloner ## This service account has permissions to clone PVCs from golden-image namespace , it will be exisiting in your namspace.
+      - name: disk1
+        dataVolume:
+          name: vm-datavolume-rocky-pvc-block
+      - name: cloudinitdisk
+        cloudInitNoCloud: ## Set the login credentials and enable password authentication via cloud-init, username is rocky by default. 
+          userData: |-
+            #cloud-config
+            user: rocky
+            password: rocky
+            ssh_authorized_keys:
+                - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCPx64DcUg1nZXJuGUyPx03dydjrGXprwIRkjneSnhbgJJ2zcu0EwMwZNAHWkJy6AAnhhn9iAJ0IcA/yEXFRzA8ubW80HTq6+DF5qBTPCIbGL9cPvQL+zWnHAWcqIiJfwKeLvVvFHooCN12HVAheRfjyHkPmfqj7khbyPgoABfsen6kZvUP8ZoZRrbXEaM3Vz7dCFq8mzN84dQQ6a6UgDrX/8TOL7AA7Luj75vvfSEulmgHqJMYASAMgA6EXffSv9GzJ6z8YyUvxMZWwWFGW3R1Mgd0fZ61fy9fIj17D9rGwP6BiAfC85sLU7WwddhOUPmoDts3G/qX5jCxPN5WGB+QevDgeZRNrDduhgYn59+HkaAabvykxje2qrhV+N+sL87VtS5NiKSOd4yISfJ2i3kDQR48mH1kCqMNSrscgooHf1CkDSJnKwwMdBBIETyHXUY2ZTRYn8iCEBhHDRNJHtBJHcXVGmtC2zdh/BNjLUyMYYeOVCQZEFuZMKzwgVPhcfgRPU+/iHLNahz6fs4fQN9kMcpzBfq2GnKAWnmWGvmyBaqrBZ3NNtXum7gcQ7z81Hz3tuZjFPSnWciPgyP5Z8PGVRYSyF6KdblewYFk6Z0W3TRX7806xt81BBrusNbMrdjfoL8Gf2ds060PKeV5s+YZZcu8/5nQcKGwNfaFsfXqiw== kubevirt
+            chpasswd: { expire: False }
+            ssh_pwauth: True
+  dataVolumeTemplates:
+  - metadata:
+      name: vm-datavolume-rocky-pvc-block
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 10Gi ## VM disk size, set this based on your workload requirements
+      source:
+        pvc:
+          name: rocky-9-server-cloudimg-amd64.img ## Name of the PVC to clone from
+          namespace: golden-images ## Namespace of the PVC to clone from, this is mangaaged by Kubernetes team

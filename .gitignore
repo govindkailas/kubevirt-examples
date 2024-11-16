@@ -1,0 +1,6 @@
+vm/cloud-init-secret-org.yaml
+virtctl-v1.3.1-linux-amd64
+.vscode/settings.json
+vm/zabbix-ubuntu-vm.yaml
+vm/harbor-creds-secret-org.yaml
+vm/secret-vddk-cred-org.yaml

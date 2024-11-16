@@ -1,0 +1,115 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: demo-fedora-vm-from-pvc
+  labels:
+    vm: demo-fedora-vm-from-pvc
+spec:
+  # Define the instance type and preference
+  # You can find all the instance types here, https://github.com/kubevirt/common-instancetypes?tab=readme-ov-file#resources
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.large  # run 'kubectl get vmcfs' to see all the available instancetypes
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: fedora # change this based on the image, avaialble options can be found in 'kubectl get vmcps'
+  
+  # Set the VM to always run
+  runStrategy: Always
+  
+  # VM template specification
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        vm: demo-fedora-vm-from-pvc
+    spec:
+      domain:
+        devices:
+          # Define disks
+          disks:
+          - disk:
+              bus: virtio
+            name: disk1
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          # Define network interface
+          interfaces:
+          - masquerade: {}
+            name: default
+        machine:
+          type: ""
+      # Define network
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      # Define volumes
+      volumes:
+      - name: "serviceaccount"
+        serviceAccount:
+          serviceAccountName: cdi-cloner ## This service account has permissions to clone PVCs from golden-image namespace , it will be exisiting in your namspace.
+      - name: disk1
+        dataVolume:
+          name: vm-datavolume-fedora-pvc-block
+      - name: disk2 ## if the app needs additional volumes
+        dataVolume:
+          name: vm-datavolume-app-pvc-block      
+      - name: cloudinitdisk
+        cloudInitNoCloud: ## Set the login credentials and enable password authentication via cloud-init, username is fedora by default. 
+          userData: |-
+            #cloud-config
+            password: fedora
+            chpasswd: { expire: False }
+            ssh_pwauth: True
+  dataVolumeTemplates:
+  - metadata:
+      name: vm-datavolume-fedora-pvc-block
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 10Gi ## VM disk size, set this based on your workload requirements
+      source:
+        pvc:
+          name: fedora-40-server-cloudimg-amd64.img ## Name of the PVC to clone from
+          namespace: golden-images ## Namespace of the PVC to clone from, this is mangaaged by Kubernetes team
+  - metadata: ## Metadata for second DataVolume to create extra volume for the app
+      name: vm-datavolume-app-pvc-block
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 20Gi ## VM disk size for app, set this based on your workload requirements
+      source:
+        blank: {}    
+---
+# To expose the VM on port 22 (for ssh) and 80 (to access app)
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-fedora-vm-from-pvc-svc
+spec:
+  externalTrafficPolicy: Cluster
+  ports:
+  - name: ssh
+    port: 22
+    protocol: TCP
+    targetPort: 22
+  - name: web
+    port: 80
+    protocol: TCP
+    targetPort: 80 # Expose port 80 for the app
+    
+  selector:
+    vm: demo-fedora-vm-from-pvc
+  type: LoadBalancer        

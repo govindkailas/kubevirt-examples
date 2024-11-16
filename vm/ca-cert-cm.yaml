@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ca-digicert
+data:
+  digicert.crt: |
+    -----BEGIN CERTIFICATE-----
+    // cert here
+    -----END CERTIFICATE-----

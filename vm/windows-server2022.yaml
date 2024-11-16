@@ -1,0 +1,67 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: win2k22
+  name: win2k22  
+spec:
+  # Define the instance type and preference
+  # You can find all the instance types here, https://github.com/kubevirt/common-instancetypes?tab=readme-ov-file#resources
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.xlarge  # run 'kubectl get vmcfs' to see all the available instancetypes
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: windows.2k22.virtio # change this based on the image, avaialble options can be found in `kubectl get vmcps`
+  
+  # Set the VM to always run
+  runStrategy: Always
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: win2k22 
+    spec:
+      evictionStrategy: LiveMigrateIfPossible
+      domain:
+        devices:
+          # Define disks
+          disks:
+          - disk:
+              bus: virtio
+            bootOrder: 1
+            name: rootdisk
+          # Define network interface
+          interfaces:
+          - masquerade: {}
+            model: e1000
+            name: default
+      # Define network
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      # Define volumes
+      volumes:
+      - name: "serviceaccount"
+        serviceAccount:
+          serviceAccountName: cdi-cloner
+      - name: rootdisk
+        persistentVolumeClaim:
+          claimName: windows-server-2022-autoconfigured
+  # Define data volume template
+  dataVolumeTemplates:
+  - metadata:
+      name: windows-server-2022-autoconfigured
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany # allow the PVC to be accessed through multiple pods, this is needed for live migration support
+        resources:
+          requests:
+            storage: 50Gi
+      source:
+        pvc:
+          name: win2k22-golden.img 
+          namespace: golden-images          

@@ -1,0 +1,37 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+    generateName: windows10-installer-run-
+spec:
+    params:
+    -   name: winImageDownloadURL
+        value: 'https://software.download.prss.microsoft.com/dbazure/Windows10_InsiderPreview_Client_x64_en-us_19045.1826.iso?t=a24a7e26-8b85-4d0a-a7ac-8f1da6df69b0&P1=1730829535&P2=601&P3=2&P4=txs9Z81gcmC906EMBs4loSt54gsLqEf81clImEoiuEGOYFII8Qfihz68MJhUtS9mo3X7nDGznMBFJgKHTUC814%2fBKRASeqH0K4vsweusqO8lPcO2t67BZbzLhmPxgmmZAYCPrCKgad4g5T5D9C20OGTp9f9LJHJtyxhDuAj%2fr%2bAElhGZW6AUAkxR5NxjYUS6SDa4r9zp9y%2fFzODx02cw8KWBfpRd61Am6sT9qa7E%2fJv%2bGBSm61ThSDIrTpRouXjO2R%2b1HnbaUEy7Z9uYHGJXqEZjx%2fE66FcEZstqB7pMDYNf662fErZRqJflk7ZNcXwury685IBaresYhNEnfWN9zA%3d%3d'
+    -   name: acceptEula
+        value: false
+    -   name: preferenceName
+        value: windows.10.virtio
+    -   name: autounattendConfigMapName
+        value: windows10-efi-autounattend
+    -   name: baseDvName
+        value: win10
+    -   name: isoDVName
+        value: win10
+    pipelineRef:
+        params:
+        -   name: catalog
+            value: kubevirt-tekton-pipelines
+        -   name: type
+            value: artifact
+        -   name: kind
+            value: pipeline
+        -   name: name
+            value: windows-efi-installer
+        -   name: version
+            value: v0.22.0
+        resolver: hub
+    taskRunSpecs:
+    -   pipelineTaskName: modify-windows-iso-file
+        podTemplate:
+            securityContext:
+                fsGroup: 107
+                runAsUser: 107

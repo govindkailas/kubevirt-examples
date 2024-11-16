@@ -1,0 +1,57 @@
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: win2k22-golden.img
+  namespace: golden-images
+spec:
+  pvc:
+    accessModes:
+    - ReadWriteMany
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: ceph-block
+    volumeMode: Block
+  source:
+    pvc:
+      name: win2k22
+      namespace: gkr-win-vms
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: win11-golden.img
+  namespace: golden-images
+spec:
+  pvc:
+    accessModes:
+    - ReadWriteMany
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: ceph-block
+    volumeMode: Block
+  source:
+    pvc:
+      name: win11
+      namespace: gkr-win-vms
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: win10-golden.img
+  namespace: golden-images
+spec:
+  pvc:
+    accessModes:
+    - ReadWriteMany
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: ceph-block
+    volumeMode: Block
+  source:
+    pvc:
+      name: win10
+      namespace: gkr-win-vms
+            

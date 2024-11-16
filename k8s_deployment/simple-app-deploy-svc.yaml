@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simple-go-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: simple-go-app
+  template:
+    metadata:
+      labels:
+        app: simple-go-app
+    spec:
+      containers:
+      - name: simple-go-app
+        image: ghcr.io/govindkailas/simple-go-app:main@sha256:1bdcac991bc4f5a4a6e2ddfc8ca9fe3610e47cf847da31c6543b0f0ab8fb8eb6
+        ports:
+        - containerPort: 80
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
+          requests:
+            cpu: "100m"
+            memory: "50Mi"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: simple-go-app-svc
+spec:
+  type: LoadBalancer
+  selector:
+    app: simple-go-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80

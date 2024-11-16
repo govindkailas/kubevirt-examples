@@ -1,0 +1,69 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: win2k22
+  labels:
+      kubevirt.io/vm: win2k22  
+spec:
+  # Define the instance type and preference
+  # You can find all the instance types here, https://github.com/kubevirt/common-instancetypes?tab=readme-ov-file#resources
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.large  # run 'kubectl get vmcfs' to see all the available instancetypes
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: windows.2k22.virtio # change this based on the image, avaialble options can be found in `kubectl get vmcps`
+  
+  # Set the VM to rerun on failure
+  runStrategy: RerunOnFailure  
+  
+  # VM template specification
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: win2k22
+    spec:
+      evictionStrategy: LiveMigrateIfPossible
+      domain:
+        devices:
+          # Define network interface
+          interfaces:
+          - masquerade: {}
+            model: e1000
+            name: default
+          # Define disks
+          disks:
+            - disk:
+                bus: virtio
+              name: rootdisk
+              bootOrder: 1
+            - disk:
+                bus: virtio
+              name: disk1    
+      # Define network
+      networks:
+      - name: default
+        pod: {}      
+      # Define volumes
+      volumes:
+      - dataVolume:
+          name:  win2k22
+        name: rootdisk
+      - name: disk1  ## add an extra volume of the same type as the second disk
+        dataVolume:
+          name: disk1-dv  
+  # Define data volume template
+  dataVolumeTemplates:
+  - metadata:
+      name: disk1-dv
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany # allow the PVC to be accessed through multiple pods, this is needed for live migration support
+        resources:
+          requests:
+            storage: 32Gi
+      source:
+        blank: {}

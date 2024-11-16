@@ -1,0 +1,83 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: demo-vm-win2k19
+spec:
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.xlarge
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: windows.2k19.virtio
+  runStrategy: Always
+  template:
+    metadata:
+      creationTimestamp: null
+    spec:
+      domain:
+        devices:
+          disks:
+          - cdrom:
+              bus: sata
+            bootOrder: 1
+            name: cdromiso
+          - disk:
+              bus: virtio
+            bootOrder: 2
+            name: disk1
+          - cdrom:
+              bus: sata
+            bootOrder: 3
+            name: virtiocontainerdisk
+          interfaces:
+          - masquerade: {}
+            model: e1000
+            name: default
+        machine:
+          type: ""
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - name: "serviceaccount"
+        serviceAccount:
+          serviceAccountName: cdi-cloner
+      - name: cdromiso
+        persistentVolumeClaim:
+          claimName: windows-server-2019-block.iso
+      - name: virtiocontainerdisk
+        containerDisk:
+          image: quay.io/kubevirt/virtio-container-disk
+      - name: disk1
+        dataVolume:
+          name: demo-vm-win2k19
+  dataVolumeTemplates:
+  - metadata:
+      name: demo-vm-win2k19
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 32Gi
+      source:
+        blank: {}
+  - metadata:
+      name: windows-server-2019-block.iso
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 12Gi
+      source:
+        pvc:
+          name: windows-server-2k19-amd64.img
+          namespace: golden-images

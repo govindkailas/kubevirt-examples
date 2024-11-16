@@ -1,0 +1,10 @@
+apiVersion: snapshot.kubevirt.io/v1alpha1
+kind: VirtualMachineRestore
+metadata:
+  name: restore-snap001
+spec:
+  target:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: demo-vm-from-snap001 ## it's also possible to restore to the source VM, if you want to!!
+  virtualMachineSnapshotName: snap001

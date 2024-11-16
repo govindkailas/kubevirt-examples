@@ -1,0 +1,73 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: demo-ubuntu-vm-from-pvc
+  labels:
+    vm: demo-ubuntu-vm-from-pvc
+spec:
+  # Define the instance type and preference
+  # You can find all the instance types here, https://github.com/kubevirt/common-instancetypes?tab=readme-ov-file#resources
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.large  # run 'kubectl get vmcfs' to see all the available instancetypes
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: ubuntu # change this based on the image, avaialble options can be found in 'kubectl get vmcps'
+  
+  # Set the VM to always run
+  runStrategy: Always
+  
+  # VM template specification
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        vm: demo-ubuntu-vm-from-pvc
+    spec:
+      domain:
+        devices:
+          # Define disks
+          disks:
+          - disk:
+              bus: virtio
+            name: disk1
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          # Define network interface
+          interfaces:
+          - masquerade: {} ## https://kubevirt.io/user-guide/network/interfaces_and_networks/#masquerade
+            name: default
+      # Define network
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      # Define volumes
+      volumes:
+      - name: "serviceaccount"
+        serviceAccount:
+          serviceAccountName: cdi-cloner ## This service account has permissions to clone PVCs from golden-images namespace , it will be existing in your namspace.
+      - name: disk1
+        dataVolume:
+          name: demo-ubuntu-vm-from-pvc
+      - name: cloudinitdisk ## cloud-init will setup up the ssh user mentioned in the cloud-init-secret.yaml
+        cloudInitNoCloud:
+          secretRef:
+            name: cloudinit-secret
+  dataVolumeTemplates:
+  - metadata:
+      name: demo-ubuntu-vm-from-pvc
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 5Gi ## VM disk size, set this based on your workload requirements
+      source:
+        pvc:
+          name: noble-server-cloudimg-amd64.img ## Name of the PVC to clone from
+          namespace: golden-images ## Namespace of the PVC to clone from, this is managed by Kubernetes team

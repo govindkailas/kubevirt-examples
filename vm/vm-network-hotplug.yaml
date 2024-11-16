@@ -1,0 +1,110 @@
+
+# Create a new subnet
+apiVersion: kubeovn.io/v1
+kind: Subnet
+metadata:
+  name: gkr-extra-net
+spec:
+  protocol: IPv4
+  cidrBlock: 10.253.0.0/24
+  excludeIps:
+  - 10.253.0.1
+  gateway: 10.253.0.1
+  gatewayType: distributed
+  provider: gkr-extra-net.tnt-govind-0.ovn # format is <name>.<namesapce>.ovn
+  natOutgoing: true
+  routeTable: ""
+---
+# create secondary network interface for the vm to use
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: gkr-extra-net
+spec:
+  config: '{
+      "cniVersion": "0.3.0",
+      "type": "kube-ovn",
+      "server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
+      "provider": "gkr-extra-net.tnt-govind-0.ovn" 
+    }'
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  creationTimestamp: null
+  name: vm-hotplug-network
+spec:
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.large
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: ubuntu
+  runStrategy: Always
+  template:
+    metadata:
+      creationTimestamp: null
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: disk1
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          interfaces:
+          - masquerade: {}
+            name: default
+          - name: dyniface1 #comment 60-61 to start the vm without additiional network interface
+            bridge: {}
+        machine:
+          type: ""
+      networks:
+      - name: default
+        pod: {}
+      - name: dyniface1 ## Comment 67-69 to start the vm without additiional network interface
+        multus:
+          networkName: gkr-extra-net
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - name: "serviceaccount"
+        serviceAccount:
+          serviceAccountName: cdi-cloner
+      - name: disk1
+        dataVolume:
+          name: vm-hotplug-network
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          secretRef:
+            name: cloudinit-secret
+          networkData: |-
+            network:
+              version: 2
+              ethernets:
+                enp1s0:
+                  dhcp4: true
+  dataVolumeTemplates:
+  - metadata:
+      name: vm-hotplug-network
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 5Gi
+      source:
+        pvc:
+          name: noble-server-cloudimg-amd64.img
+          namespace: golden-images
+
+## Once the additonal network interface is added, do a vm migrate to get the new network interface. The new interface will be showing DOWN state initially, check with `ip a` command.
+## Bring the interface up using the below command once the vm is migrated. 
+## Login to the vm using ssh, run below command, 
+## sudo ip link set <interface-name> up
+## To get a ip from DHCP to the new interface, run below command
+##  sudo dhclient <interface-name> 

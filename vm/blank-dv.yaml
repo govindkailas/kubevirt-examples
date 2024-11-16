@@ -1,0 +1,42 @@
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: dv-hotplug
+spec:
+  pvc:
+    accessModes:
+    - ReadWriteMany
+    resources:
+      requests:
+        storage: 2Gi
+    storageClassName: ceph-block
+    volumeMode: Block
+  source:
+    blank: {}
+
+
+# To check the volumes in a VM:
+
+# ssh ubuntu@vm/demo-ubuntu-vm-from-pvc "lsblk"
+# NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+# vda     253:0    0    5G  0 disk 
+# ├─vda1  253:1    0    4G  0 part /
+# ├─vda14 253:14   0    4M  0 part 
+# ├─vda15 253:15   0  106M  0 part /boot/efi
+# └─vda16 259:0    0  913M  0 part /boot
+# vdb     253:16   0    1M  0 disk 
+# vdc     253:32   0    1M  0 disk 
+
+## This will add a new blank volume called "dv-hotplug" that can be hotplugged to VMs
+## `virtctl addvolume <vm-name> --volume-name=dv-hotplug --persist`    
+
+# ssh ubuntu@vm/demo-ubuntu-vm-from-pvc "lsblk"
+# NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+# sda       8:0    0    2G  0 disk   ## <-- new blank volume
+# vda     253:0    0    5G  0 disk 
+# ├─vda1  253:1    0    4G  0 part /
+# ├─vda14 253:14   0    4M  0 part 
+# ├─vda15 253:15   0  106M  0 part /boot/efi
+# └─vda16 259:0    0  913M  0 part /boot
+# vdb     253:16   0    1M  0 disk 
+# vdc     253:32   0    1M  0 disk 

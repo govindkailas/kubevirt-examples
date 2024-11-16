@@ -1,0 +1,9 @@
+apiVersion: snapshot.kubevirt.io/v1alpha1
+kind: VirtualMachineSnapshot
+metadata:
+  name: snap001
+spec:
+  source:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: demo-ubuntu-vm-from-pvc

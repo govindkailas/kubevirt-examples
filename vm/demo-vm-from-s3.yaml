@@ -1,0 +1,59 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: demo-vm-from-s3
+spec:
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.large
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: ubuntu # change this based on the image, avaialble options can be found in `kubectl get vmcps`
+  runStrategy: Always
+  template:
+    metadata:
+      creationTimestamp: null
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: disk1
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          interfaces:
+          - masquerade: {}
+            name: default
+        machine:
+          type: ""
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - name: disk1
+        dataVolume:
+          name: demo-vm-from-s3
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          secretRef: 
+            name: cloudinit-secret
+  dataVolumeTemplates:
+  - metadata:
+      name: demo-vm-from-s3
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 3Gi
+      source:
+        s3:
+          #url: http://10.125.0.133:9000/vm-images/jammy-server-cloudimg-amd64-disk-kvm.img
+          url: http://minio-headless.minio.svc.cluster.local:9000/vm-images/ubuntu/jammy/jammy-server-cloudimg-amd64-20240403.img
+          secretRef: minio-cred

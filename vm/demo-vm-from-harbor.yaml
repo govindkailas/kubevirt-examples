@@ -1,0 +1,74 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: demo-vm-from-harbor
+spec:
+  # Define the instance type and preference
+  # You can find all the instance types here, https://github.com/kubevirt/common-instancetypes?tab=readme-ov-file#resources
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.large ## run 'kubectl get vmcfs' to see all the available instancetypes
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: ubuntu # change this based on the image, avaialble options can be found in `kubectl get vmcps`
+  
+  # Set the VM to always run
+  runStrategy: Always
+  
+  # VM template specification
+  template:
+    metadata:
+      labels:
+        vm: demo-ubuntu-vm-from-pvc
+    spec:
+      domain:
+        devices:
+          # Define disks
+          disks:
+          - disk:
+              bus: virtio
+            name: disk1
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          # Define network interface
+          interfaces:
+          - masquerade: {}
+            name: default
+        machine:
+          type: ""
+      # Define network
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      # Define volumes
+      volumes:
+      - name: disk1
+        dataVolume:
+          name: demo-vm-from-harbor
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          secretRef: 
+            name: cloudinit-secret ## this secret contains the details on how to setup the ssh user/ssh key
+  
+  # Define data volume template
+  dataVolumeTemplates:
+  - metadata:
+      name: demo-vm-from-harbor
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany # allow the PVC to be accessed through multiple pods, this is needed for live migration support
+        resources:
+          requests:
+            storage: 10Gi ## this is going to be your VM storage disk size
+      # Define source for the data volume
+
+      source:
+        registry:
+          url: "docker://harbor-repo.corp.com/vmimages/ubuntu:24.10"  # to build the image, ref, ubuntu.dockerfile 
+          certConfigMap: ca-digicert # this contains the cert for docker registry tls
+          secretRef: harbor-cred ## this secret contains harbor username and password

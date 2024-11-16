@@ -1,0 +1,14 @@
+kind: VirtualMachineClone
+apiVersion: "clone.kubevirt.io/v1alpha1"
+metadata:
+  name: clone-ubuntu
+spec:
+  # source & target definitions
+  source:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: demo-vm-from-image-url ## Your source VM name for cloning
+  target:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: vmclone-of-ubuntu ## Your target VM name that wil be cloned

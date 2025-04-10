@@ -27,7 +27,7 @@ spec:
         -   name: name
             value: windows-efi-installer
         -   name: version
-            value: v0.22.0
+            value: v0.24.0
         resolver: hub
     taskRunSpecs:
     -   pipelineTaskName: modify-windows-iso-file
@@ -35,4 +35,10 @@ spec:
             securityContext:
                 fsGroup: 107
                 runAsUser: 107
-    # timeout: 1h0m0s
+            computeResources: 
+            requests:
+                memory: 256Mi
+                cpu: 100m        
+            limits:
+                memory: 3Gi
+                cpu: 3

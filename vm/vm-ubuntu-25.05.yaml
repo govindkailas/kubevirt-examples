@@ -1,0 +1,104 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: ubuntu-25-04
+  labels:
+    vm: ubuntu-25-04 # service are expose based on this label
+spec:
+  # Define the instance type and preference
+  # You can find all the instance types here, https://github.com/kubevirt/common-instancetypes?tab=readme-ov-file#resources
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: u1.medium  # run 'kubectl get vmcfs' to see all the available instancetypes
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: ubuntu # change this based on the image, avaialble options can be found in `kubectl get vmcps`
+  
+  # Set the VM to always run
+  runStrategy: Always
+  
+  # VM template specification
+  template:
+    metadata:
+      labels:
+        vm: ubuntu-25-04 # service are expose based on this label
+    spec:
+      domain:
+        devices:
+          # Define disks
+          disks:
+          - disk:
+              bus: virtio
+            name: disk1
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          # Define network interface, https://kubevirt.io/user-guide/network/interfaces_and_networks/
+          interfaces:
+          - masquerade: {} # In masquerade mode, KubeVirt allocates internal IP addresses to VM and hides them behind NAT
+            name: default
+      # Define network
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      # Define volumes
+      volumes:
+      - name: disk1
+        dataVolume:
+          name: ubuntu-25-04
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          networkData: |-
+            network:
+              version: 2
+              ethernets:
+                enp1s0:
+                  dhcp4: true
+          userData: |-
+            #cloud-config
+            packages:
+            - qemu-guest-agent
+            runcmd:
+            - systemctl start qemu-guest-agent
+            - systemctl enable qemu-guest-agent
+            ssh_pwauth: true
+            users:
+            - name: ubuntu
+              sudo: ALL=(ALL) NOPASSWD:ALL
+              lock_passwd: false
+              plain_text_passwd: 'ubuntu' ## set your password here
+              shell: /bin/bash
+  # Define data volume template
+  dataVolumeTemplates:
+  - metadata:
+      name: ubuntu-25-04
+    spec:
+      pvc:
+        storageClassName: ceph-block
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany # allow the PVC to be accessed through multiple pods, this is needed for live migration support
+        resources:
+          requests:
+            storage: 10Gi  # this is going to be your VM storage disk size
+      source:
+        http:
+          # Qcow2 is the virtual hard disk format of KVM virtual machine
+          # URL for the image source should be specified here
+          url: https://cloud-images.ubuntu.com/plucky/current/plucky-server-cloudimg-amd64.img ## this is 25.04
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ubuntu-25-04-svc
+spec:
+  externalTrafficPolicy: Cluster
+  ports:
+  - port: 22
+    protocol: TCP
+    targetPort: 22
+  selector:
+    vm.kubevirt.io/name: ubuntu-25-04
+  type: LoadBalancer
+          

@@ -75,13 +75,13 @@ spec:
       name: ubuntu-25-04
     spec:
       pvc:
-        storageClassName: ceph-block
+        storageClassName: ceph-block # change this according to your storage class name. This can be commented if your cluster has a default storage class
         volumeMode: Block
         accessModes:
         - ReadWriteMany # allow the PVC to be accessed through multiple pods, this is needed for live migration support
         resources:
           requests:
-            storage: 10Gi  # this is going to be your VM storage disk size
+            storage: 10Gi  # This is going to be your VM storage disk size
       source:
         http:
           # Qcow2 is the virtual hard disk format of KVM virtual machine
